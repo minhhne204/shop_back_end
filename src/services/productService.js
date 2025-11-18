@@ -21,7 +21,8 @@ const getAllProduct = () => {
 
 const createProduct = (newProduct) => {
   return new Promise(async (resolve, reject) => {
-    const { name, price, image, description } = newProduct;
+    const { name, price, image, type, countInStock, category, description } =
+      newProduct;
     try {
       const checkProduct = await Product.findOne({ name: name });
       if (checkProduct != null) {
@@ -31,6 +32,9 @@ const createProduct = (newProduct) => {
         name,
         price,
         image,
+        type,
+        countInStock,
+        category,
         description,
       });
       if (newProduct) {

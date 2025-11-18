@@ -14,8 +14,8 @@ const getAllProduct = async (req, res) => {
 // Thêm sản phẩm mới
 const createProduct = async (req, res) => {
   try {
-    const { name, price, image, description } = req.body;
-    if (!name || !price || !image || !description) {
+    const { name, price, image, type,countInStock, category, description } = req.body;
+    if (!name || !price || !image || !type || !countInStock || !category || !description ) {
       return res.status(200).json({
         status: "error",
         message: "The input is required.",
