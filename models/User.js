@@ -1,54 +1,49 @@
-import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+import mongoose from 'mongoose'
+import bcrypt from 'bcryptjs'
 
-const userSchema = new mongoose.Schema(
-  {
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-      lowercase: true,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    fullName: {
-      type: String,
-      required: true,
-    },
-    phone: {
-      type: String,
-      default: "",
-    },
-    address: {
-      street: { type: String, default: "" },
-      ward: { type: String, default: "" },
-      district: { type: String, default: "" },
-      city: { type: String, default: "" },
-    },
-    role: {
-      type: String,
-      enum: ["user", "admin"],
-      default: "user",
-    },
-    wishlist: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Product",
-      },
-    ],
+const userSchema = new mongoose.Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true
   },
-  { timestamps: true }
-);
+  password: {
+    type: String,
+    required: true
+  },
+  fullName: {
+    type: String,
+    required: true
+  },
+  phone: {
+    type: String,
+    default: ''
+  },
+  address: {
+    street: { type: String, default: '' },
+    ward: { type: String, default: '' },
+    district: { type: String, default: '' },
+    city: { type: String, default: '' }
+  },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
+  wishlist: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Product'
+  }]
+}, { timestamps: true })
 
-userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
-  this.password = await bcrypt.hash(this.password, 10);
-});
+userSchema.pre('save', async function() {
+  if (!this.isModified('password')) return
+  this.password = await bcrypt.hash(this.password, 10)
+})
 
-userSchema.methods.comparePassword = async function (candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
-};
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password)
+}
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model('User', userSchema)
