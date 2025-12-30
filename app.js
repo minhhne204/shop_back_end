@@ -15,6 +15,7 @@ import adminRoutes from './routes/admin.js'
 import uploadRoutes from './routes/upload.js'
 import reviewRoutes from './routes/reviews.js'
 import preorderRoutes from './routes/preorder.js'
+import vnpayRoutes from './routes/vnpay.js'
 
 const app = express()
 
@@ -36,6 +37,7 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/upload', uploadRoutes)
 app.use('/api', reviewRoutes)
 app.use('/api/preorders', preorderRoutes)
+app.use('/api/vnpay', vnpayRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'GameForge API' })

@@ -1,5 +1,36 @@
 import mongoose from 'mongoose'
 
+const variantSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  price: {
+    type: Number,
+    default: null
+  },
+  salePrice: {
+    type: Number,
+    default: null
+  },
+  stock: {
+    type: Number,
+    default: 0
+  },
+  sku: {
+    type: String,
+    default: ''
+  },
+  image: {
+    type: String,
+    default: null
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  }
+})
+
 const productSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -44,6 +75,15 @@ const productSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  hasVariants: {
+    type: Boolean,
+    default: false
+  },
+  variantType: {
+    type: String,
+    default: ''
+  },
+  variants: [variantSchema],
   ratings: {
     average: { type: Number, default: 0 },
     count: { type: Number, default: 0 }

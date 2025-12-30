@@ -468,7 +468,21 @@ export const updatePolicy = async (req, res) => {
 
 export const getReports = async (req, res) => {
   try {
+    const { startDate, endDate } = req.query
+
     const now = new Date()
+    let filterStart, filterEnd
+
+    if (startDate && endDate) {
+      filterStart = new Date(startDate)
+      filterStart.setHours(0, 0, 0, 0)
+      filterEnd = new Date(endDate)
+      filterEnd.setHours(23, 59, 59, 999)
+    } else {
+      filterStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      filterEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+    }
+
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
@@ -563,6 +577,89 @@ export const getReports = async (req, res) => {
 
     const totalOrders = await Order.countDocuments()
 
+    const filteredRevenue = await Order.aggregate([
+      {
+        $match: {
+          status: 'delivered',
+          createdAt: { $gte: filterStart, $lte: filterEnd }
+        }
+      },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } }
+    ])
+
+    const filteredOrders = await Order.countDocuments({
+      createdAt: { $gte: filterStart, $lte: filterEnd }
+    })
+
+    const filteredDeliveredOrders = await Order.countDocuments({
+      status: 'delivered',
+      createdAt: { $gte: filterStart, $lte: filterEnd }
+    })
+
+    const filteredCancelledOrders = await Order.countDocuments({
+      status: 'cancelled',
+      createdAt: { $gte: filterStart, $lte: filterEnd }
+    })
+
+    const filteredTopProducts = await Order.aggregate([
+      {
+        $match: {
+          status: 'delivered',
+          createdAt: { $gte: filterStart, $lte: filterEnd }
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: '$items.product',
+          name: { $first: '$items.name' },
+          image: { $first: '$items.image' },
+          totalSold: { $sum: '$items.quantity' },
+          revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
+      { $sort: { totalSold: -1 } },
+      { $limit: 10 }
+    ])
+
+    const filteredCategoryStats = await Order.aggregate([
+      {
+        $match: {
+          status: 'delivered',
+          createdAt: { $gte: filterStart, $lte: filterEnd }
+        }
+      },
+      { $unwind: '$items' },
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'items.product',
+          foreignField: '_id',
+          as: 'productInfo'
+        }
+      },
+      { $unwind: '$productInfo' },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'productInfo.category',
+          foreignField: '_id',
+          as: 'categoryInfo'
+        }
+      },
+      { $unwind: { path: '$categoryInfo', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: '$categoryInfo._id',
+          name: { $first: '$categoryInfo.name' },
+          totalSold: { $sum: '$items.quantity' },
+          revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } }
+        }
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 5 }
+    ])
+
     const categoryStats = await Order.aggregate([
       { $match: { status: 'delivered' } },
       { $unwind: '$items' },
@@ -599,11 +696,15 @@ export const getReports = async (req, res) => {
     res.json({
       revenue: {
         thisMonth: revenueThisMonth[0]?.total || 0,
-        total: totalRevenue[0]?.total || 0
+        total: totalRevenue[0]?.total || 0,
+        filtered: filteredRevenue[0]?.total || 0
       },
       orders: {
         thisMonth: ordersThisMonth,
-        total: totalOrders
+        total: totalOrders,
+        filtered: filteredOrders,
+        filteredDelivered: filteredDeliveredOrders,
+        filteredCancelled: filteredCancelledOrders
       },
       products: {
         total: totalProducts
@@ -616,7 +717,13 @@ export const getReports = async (req, res) => {
       ordersByStatus,
       dailyStats: last7Days,
       monthlyStats: last6Months,
-      categoryStats
+      categoryStats,
+      filteredTopProducts,
+      filteredCategoryStats,
+      dateRange: {
+        start: filterStart.toISOString(),
+        end: filterEnd.toISOString()
+      }
     })
   } catch (error) {
     res.status(500).json({ message: error.message })

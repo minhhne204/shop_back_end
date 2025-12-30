@@ -1,5 +1,6 @@
 import Review from '../models/Review.js'
 import Product from '../models/Product.js'
+import Order from '../models/Order.js'
 
 export const getProductReviews = async (req, res) => {
   try {
@@ -62,6 +63,16 @@ export const createReview = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy sản phẩm' })
     }
 
+    const hasPurchased = await Order.findOne({
+      user: req.user._id,
+      status: 'delivered',
+      'items.product': product._id
+    })
+
+    if (!hasPurchased) {
+      return res.status(400).json({ message: 'Bạn cần mua sản phẩm này trước khi đánh giá' })
+    }
+
     const existingReview = await Review.findOne({
       product: product._id,
       user: req.user._id
@@ -76,7 +87,8 @@ export const createReview = async (req, res) => {
       user: req.user._id,
       rating: req.body.rating,
       comment: req.body.comment,
-      images: req.body.images || []
+      images: req.body.images || [],
+      orderId: hasPurchased._id
     })
 
     const populatedReview = await Review.findById(review._id).populate('user', 'fullName')
@@ -159,6 +171,34 @@ export const deleteReview = async (req, res) => {
     })
 
     res.json({ message: 'Đã xóa đánh giá' })
+  } catch (error) {
+    res.status(500).json({ message: error.message })
+  }
+}
+
+export const canReview = async (req, res) => {
+  try {
+    const product = await Product.findOne({ slug: req.params.slug })
+    if (!product) {
+      return res.status(404).json({ message: 'Không tìm thấy sản phẩm' })
+    }
+
+    const hasPurchased = await Order.findOne({
+      user: req.user._id,
+      status: 'delivered',
+      'items.product': product._id
+    })
+
+    const hasReviewed = await Review.findOne({
+      product: product._id,
+      user: req.user._id
+    })
+
+    res.json({
+      canReview: !!hasPurchased && !hasReviewed,
+      hasPurchased: !!hasPurchased,
+      hasReviewed: !!hasReviewed
+    })
   } catch (error) {
     res.status(500).json({ message: error.message })
   }

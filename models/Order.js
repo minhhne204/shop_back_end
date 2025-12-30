@@ -12,6 +12,14 @@ const orderSchema = new mongoose.Schema({
       ref: 'Product',
       required: true
     },
+    variantId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null
+    },
+    variantName: {
+      type: String,
+      default: null
+    },
     name: String,
     price: Number,
     quantity: {
@@ -40,12 +48,37 @@ const orderSchema = new mongoose.Schema({
   },
   paymentMethod: {
     type: String,
-    enum: ['cod', 'banking'],
+    enum: ['cod', 'banking', 'vnpay'],
     default: 'cod'
+  },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'failed'],
+    default: 'pending'
+  },
+  vnpayTransactionNo: {
+    type: String,
+    default: null
+  },
+  vnpayBankCode: {
+    type: String,
+    default: null
+  },
+  vnpayPayDate: {
+    type: String,
+    default: null
+  },
+  promoCode: {
+    type: String,
+    default: null
   },
   discount: {
     type: Number,
     default: 0
+  },
+  cancelReason: {
+    type: String,
+    default: ''
   },
   shippingFee: {
     type: Number,
