@@ -1,136 +1,43 @@
 import Order from '../models/Order.js'
 import Cart from '../models/Cart.js'
 import Product from '../models/Product.js'
-import Promotion from '../models/Promotion.js'
 
 export const createOrder = async (req, res) => {
   try {
-    const { shippingAddress, paymentMethod, note, promoCode } = req.body
+    const { shippingAddress, paymentMethod, note } = req.body
 
     const cart = await Cart.findOne({ user: req.user._id }).populate('items.product')
     if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ message: 'Giỏ hàng trống' })
+      return res.status(400).json({ message: 'Gio hang trong' })
     }
 
-    for (const item of cart.items) {
-      if (item.variantId && item.product.hasVariants) {
-        const variant = item.product.variants.find(v => v._id.toString() === item.variantId.toString())
-        if (!variant) {
-          return res.status(400).json({ message: `Biến thể không tồn tại cho sản phẩm "${item.product.name}"` })
-        }
-        if (variant.stock < item.quantity) {
-          return res.status(400).json({ message: `Sản phẩm "${item.product.name} - ${variant.name}" không đủ hàng (còn ${variant.stock})` })
-        }
-      } else {
-        if (item.product.stock < item.quantity) {
-          return res.status(400).json({ message: `Sản phẩm "${item.product.name}" không đủ hàng (còn ${item.product.stock})` })
-        }
-      }
-    }
+    const items = cart.items.map(item => ({
+      product: item.product._id,
+      name: item.product.name,
+      price: item.product.salePrice || item.product.price,
+      quantity: item.quantity,
+      image: item.product.images[0]
+    }))
 
-    const items = cart.items.map(item => {
-      let price = item.product.salePrice || item.product.price
-      let variantName = item.variantName
-      let variantId = item.variantId
+    const totalAmount = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
 
-      if (item.variantId && item.product.hasVariants) {
-        const variant = item.product.variants.find(v => v._id.toString() === item.variantId.toString())
-        if (variant) {
-          price = variant.salePrice || variant.price || price
-          variantName = variant.name
-        }
-      }
-
-      return {
-        product: item.product._id,
-        variantId: variantId || null,
-        variantName: variantName || null,
-        name: item.product.name,
-        price: price,
-        quantity: item.quantity,
-        image: item.product.images[0]
-      }
-    })
-
-    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
     const itemCount = items.reduce((sum, item) => sum + item.quantity, 0)
     const shippingFee = itemCount >= 2 ? 0 : 30000
-
-    let finalDiscount = 0
-    let validPromoCode = null
-
-    if (promoCode) {
-      const promotion = await Promotion.findOne({
-        code: promoCode.toUpperCase(),
-        isActive: true,
-        startDate: { $lte: new Date() },
-        endDate: { $gte: new Date() }
-      })
-
-      if (!promotion) {
-        return res.status(400).json({ message: 'Mã giảm giá không hợp lệ hoặc đã hết hạn' })
-      }
-
-      if (promotion.usageLimit && promotion.usedCount >= promotion.usageLimit) {
-        return res.status(400).json({ message: 'Mã giảm giá đã hết lượt sử dụng' })
-      }
-
-      if (subtotal < promotion.minOrder) {
-        return res.status(400).json({
-          message: `Đơn hàng tối thiểu ${promotion.minOrder.toLocaleString()}đ để áp dụng mã này`
-        })
-      }
-
-      if (promotion.discountType === 'percent') {
-        finalDiscount = (subtotal * promotion.discountValue) / 100
-        if (promotion.maxDiscount && finalDiscount > promotion.maxDiscount) {
-          finalDiscount = promotion.maxDiscount
-        }
-      } else {
-        finalDiscount = Math.min(promotion.discountValue, subtotal)
-      }
-
-      validPromoCode = promotion.code
-    }
-
-    const totalAmount = subtotal - finalDiscount + shippingFee
 
     const order = await Order.create({
       user: req.user._id,
       items,
-      totalAmount,
+      totalAmount: totalAmount + shippingFee,
       shippingAddress,
       paymentMethod,
-      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
       shippingFee,
-      discount: finalDiscount,
-      promoCode: validPromoCode,
       note
     })
 
     for (const item of cart.items) {
-      if (item.variantId && item.product.hasVariants) {
-        await Product.findOneAndUpdate(
-          { _id: item.product._id, 'variants._id': item.variantId },
-          {
-            $inc: {
-              'variants.$.stock': -item.quantity,
-              soldCount: item.quantity
-            }
-          }
-        )
-      } else {
-        await Product.findByIdAndUpdate(item.product._id, {
-          $inc: { stock: -item.quantity, soldCount: item.quantity }
-        })
-      }
-    }
-
-    if (validPromoCode) {
-      await Promotion.findOneAndUpdate(
-        { code: validPromoCode },
-        { $inc: { usedCount: 1 } }
-      )
+      await Product.findByIdAndUpdate(item.product._id, {
+        $inc: { stock: -item.quantity, soldCount: item.quantity }
+      })
     }
 
     await Cart.findOneAndDelete({ user: req.user._id })
@@ -164,48 +71,22 @@ export const getOrderById = async (req, res) => {
 
 export const cancelOrder = async (req, res) => {
   try {
-    const { cancelReason } = req.body
-
-    if (!cancelReason || cancelReason.trim() === '') {
-      return res.status(400).json({ message: 'Vui lòng nhập lý do hủy đơn hàng' })
-    }
-
     const order = await Order.findOne({ _id: req.params.id, user: req.user._id })
     if (!order) {
-      return res.status(404).json({ message: 'Không tìm thấy đơn hàng' })
+      return res.status(404).json({ message: 'Khong tim thay don hang' })
     }
 
     if (order.status !== 'pending') {
-      return res.status(400).json({ message: 'Không thể hủy đơn hàng này' })
+      return res.status(400).json({ message: 'Khong the huy don hang nay' })
     }
 
     order.status = 'cancelled'
-    order.cancelReason = cancelReason.trim()
     await order.save()
 
     for (const item of order.items) {
-      if (item.variantId) {
-        await Product.findOneAndUpdate(
-          { _id: item.product, 'variants._id': item.variantId },
-          {
-            $inc: {
-              'variants.$.stock': item.quantity,
-              soldCount: -item.quantity
-            }
-          }
-        )
-      } else {
-        await Product.findByIdAndUpdate(item.product, {
-          $inc: { stock: item.quantity, soldCount: -item.quantity }
-        })
-      }
-    }
-
-    if (order.promoCode) {
-      await Promotion.findOneAndUpdate(
-        { code: order.promoCode, usedCount: { $gt: 0 } },
-        { $inc: { usedCount: -1 } }
-      )
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: item.quantity, soldCount: -item.quantity }
+      })
     }
 
     res.json(order)
