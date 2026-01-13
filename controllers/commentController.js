@@ -24,7 +24,22 @@ export const getCategories = async (req, res) => {
   }
 };
 
-export const getCategoryBySlug = async (req, res) => {
+export const getCommentBySlug = async (req, res) => {
+  try {
+    const category = await Category.findOne({
+      slug: req.params.slug,
+      isActive: true,
+    });
+    if (!category) {
+      return res.status(404).json({ message: "Khong tim thay danh muc" });
+    }
+    res.json(category);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const addCommentBySlug = async (req, res) => {
   try {
     const category = await Category.findOne({
       slug: req.params.slug,
