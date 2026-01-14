@@ -85,3 +85,19 @@ export const hidenCommentBySlug = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const showCommentBySlug = async (req, res) => {
+  try {
+    const category = await Category.findOneAndUpdate(
+      { slug: req.params.slug, isActive: false },
+      { isActive: true },
+      { new: true }
+    );
+    if (!category) {
+      return res.status(404).json({ message: "Khong tim thay danh gia" });
+    }
+    res.json({ message: "Hien thi danh gia thanh cong", category });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
