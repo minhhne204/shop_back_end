@@ -11,7 +11,7 @@ export const register = async (req, res) => {
 
     const userExists = await User.findOne({ email })
     if (userExists) {
-      return res.status(400).json({ message: 'Email da ton tai' })
+      return res.status(400).json({ message: 'Email đã tồn tại !' })
     }
 
     const user = await User.create({ email, password, fullName })
@@ -34,12 +34,12 @@ export const login = async (req, res) => {
 
     const user = await User.findOne({ email })
     if (!user) {
-      return res.status(401).json({ message: 'Email hoac mat khau khong dung' })
+      return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng !' })
     }
 
     const isMatch = await user.comparePassword(password)
     if (!isMatch) {
-      return res.status(401).json({ message: 'Email hoac mat khau khong dung' })
+      return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng !' })
     }
 
     res.json({
