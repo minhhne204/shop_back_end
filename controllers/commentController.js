@@ -1,5 +1,5 @@
 import Category from "../models/Category.js";
-export const getCategories = async (req, res) => {
+export const getCategorie = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
@@ -62,9 +62,25 @@ export const deleteCommentBySlug = async (req, res) => {
       { new: true }
     );
     if (!category) {
-      return res.status(404).json({ message: "Khong tim thay danh muc" });
+      return res.status(404).json({ message: "Khong tim thay danh gia" });
     }
     res.json({ message: "Xoa dang gia thanh cong", category });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const hidenCommentBySlug = async (req, res) => {
+  try {
+    const category = await Category.findOneAndUpdate(
+      { slug: req.params.slug, isActive: true },
+      { isActive: false },
+      { new: true }
+    );
+    if (!category) {
+      return res.status(404).json({ message: "Khong tim thay danh gia" });
+    }
+    res.json({ message: "An danh gia thanh cong", category });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
